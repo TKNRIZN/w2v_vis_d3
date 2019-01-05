@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <title>{{ title }}</title>
+        <!-- Bootstrap CSS -->
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='bootstrap.min.css') }}" />
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='originalstyle.css') }}" />
+
+    </head>
+    <body >
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <a class="navbar-brand" href="#">Navbar</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav mr-auto">
+                <li class="nav-item active">
+                    <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Link</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Dropdown
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                    <a class="dropdown-item" href="#">Action</a>
+                    <a class="dropdown-item" href="#">Another action</a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#">Something else here</a>
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link disabled" href="#">Disabled</a>
+                </li>
+                </ul>
+                <form class="form-inline my-2 my-lg-0" action="/v1/find/similarwords/correlationdiagram" method="get">
+                    <input class="form-control mr-sm-2" type="text" placeholder="Search" aria-label="Search" id="inputs" name="keyword">
+                    <button class="btn btn-outline-success my-2 my-sm-0" type="submit" >Search</button>
+                </form>
+            </div>
+        </nav>
+
+        <div class="container-fluid" style="padding-top:10%">
+            <div class="row">
+                <div class="col-sm-1">
+
+                </div>
+                <div class="col-sm-5">
+                    <!-- table -->
+                    <div class="container" padding-top=1% max-width="500px">
+                            <div class="table-responsive">
+                                <table class="table table-hover table-condensed" >
+                                <tr>
+                                    <th class="col-xs-2">#</th>
+                                    <th class="col-xs-4">word</th>
+                                    <th class="col-xs-6">value</th>
+                                </tr>
+                                {% for item in dataset['nodes'] %}
+                                <tr>
+                                    <td class="col-xs-2" >{{ item.id }}</td>
+                                    <td class="col-xs-4">{{ item.name }}</td>
+                                    <td class="col-xs-6">{{ item.value }}</td>
+                                </tr>
+                                {% endfor %}
+                                </table>
+                            </div>
+                        </div>
+                </div>
+                <div class="col-sm-6">
+                        <div class="graphcontainer">
+                                <svg width="600" height="500"></svg>
+                        </div>
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <script src="{{ url_for('static',filename='d3.min.js') }}"></script>
+        <script>
+        // 1. 描画用のデータ準備
+
+        var testdata = {{ dataset|tojson }}
+
+        var nodesData = testdata.nodes
+        var linksData = testdata.links
+
+
+        console.log(nodesData)
+        console.log(linksData)
+
+
+        var node = d3.select("svg")
+            .selectAll("g")
+            .data(nodesData)
+            .enter()
+            .append("g")
+            .call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended));
+        
+        node.append("circle")
+                .attr("r", function(d){return d.value*50})
+                .attr("fill", function(d){
+                    if(d.value>=1.0){
+                        return "yellow"
+                    }else{
+                        return "LightSalmon"
+                    }
+                    })
+                .attr("stroke","black")
+                .attr("stroke-width","1px")
+        
+        node.append("text")
+                .text(function(d){return d.name})
+                .attr("x",-10)
+                .attr("font-size",function(d){return d.value*15})
+
+        // 3. forceSimulation設定
+        var simulation = d3.forceSimulation()
+        .force("collide",
+            d3.forceCollide()
+            .radius(function(d) { return d.value*50 })
+            .strength(1.0)
+            .iterations(16))
+        .force("charge", d3.forceManyBody().strength(5))
+        .force("x", d3.forceX().strength(0.1).x(200))
+        .force("y", d3.forceY().strength(0.1).y(150));
+        
+        simulation
+            .nodes(nodesData)
+            .on("tick", ticked);
+
+        // 4. forceSimulation 描画更新用関数
+        function ticked() {
+            node
+            .style("transform",function(d){return "translate("+ d.x + "px,"+d.y+"px)"});
+        }
+        
+        // 5. ドラッグ時のイベント関数
+        function dragstarted(d) {
+            if(!d3.event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function dragged(d) {
+            d.fx = d3.event.x;
+            d.fy = d3.event.y;
+        }
+        
+        function dragended(d) {
+            if(!d3.event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+        </script>
+
+    </body>
+</html>
